@@ -6,28 +6,19 @@ import { PriceChart } from "@/components/charts/price-chart";
 import { PredictionCard } from "@/components/ui/prediction-card";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { FinancialAPI, formatPrice, formatChange } from "@/lib/financial-api";
+import { toast } from "sonner";
 
-// Mock data for demonstration
-const mockChartData = [
-  { date: "2024-01-01", price: 150.00 },
-  { date: "2024-01-02", price: 152.50 },
-  { date: "2024-01-03", price: 148.75 },
-  { date: "2024-01-04", price: 155.20 },
-  { date: "2024-01-05", price: 158.90 },
-  { date: "2024-01-06", price: 161.45 },
-  { date: "2024-01-07", price: 164.25, predicted: true },
-];
-
-const mockPrediction = {
-  symbol: "AAPL",
-  currentPrice: 161.45,
-  predictedPrice: 168.30,
-  timeframe: "3 days",
-  confidence: 78,
-  trend: "bullish" as const,
-  changePercent: 4.24,
-  explanation: "Our AI model predicts upward movement based on strong earnings momentum, positive technical indicators including RSI divergence above 60, and historically favorable seasonal patterns in January."
-};
+interface AssetData {
+  symbol: string;
+  name: string;
+  currentPrice: number;
+  historicalData: any[];
+  change24h: number;
+  changePercent: number;
+  marketCap?: number;
+  volume?: number;
+}
 
 const features = [
   {
@@ -53,17 +44,67 @@ const features = [
 ];
 
 const Index = () => {
-  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
+  const [selectedAssetData, setSelectedAssetData] = useState<AssetData | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [predictionData, setPredictionData] = useState<any>(null);
+  const [isGeneratingPrediction, setIsGeneratingPrediction] = useState(false);
 
-  const handleAssetSearch = async (symbol: string) => {
+  const handleAssetSearch = async (symbol: string, assetData: AssetData) => {
+    try {
+      setSelectedAssetData(assetData);
+      setPredictionData(null);
+      
+      toast.success(`Successfully loaded ${assetData.name} (${symbol})`);
+      
+      // Auto-generate a quick 3-day prediction
+      setTimeout(() => {
+        handleGeneratePrediction(3);
+      }, 500);
+      
+    } catch (error) {
+      toast.error("Failed to load asset data");
+      console.error('Asset search error:', error);
+    }
+  };
+
+  const handleSearchStart = () => {
     setIsLoading(true);
-    setSelectedAsset(symbol);
+    setSelectedAssetData(null);
+    setPredictionData(null);
+  };
+
+  const handleGeneratePrediction = async (timeframeDays: number = 3) => {
+    if (!selectedAssetData) return;
     
-    // Simulate API call
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 2000);
+    setIsGeneratingPrediction(true);
+    setPredictionData(null);
+    
+    try {
+      const prediction = await FinancialAPI.generatePrediction(
+        selectedAssetData.symbol,
+        selectedAssetData.historicalData,
+        timeframeDays
+      );
+      
+      setPredictionData({
+        symbol: selectedAssetData.symbol,
+        currentPrice: selectedAssetData.currentPrice,
+        predictedPrice: prediction.predictedPrice,
+        timeframe: prediction.timeframe,
+        confidence: prediction.confidence,
+        trend: prediction.trend,
+        changePercent: prediction.changePercent,
+        explanation: prediction.explanation
+      });
+      
+      toast.success("AI prediction generated successfully!");
+      
+    } catch (error) {
+      toast.error("Failed to generate prediction");
+      console.error('Prediction error:', error);
+    } finally {
+      setIsGeneratingPrediction(false);
+    }
   };
 
   return (
@@ -96,29 +137,102 @@ const Index = () => {
           transition={{ duration: 0.6, delay: 0.2 }}
           className="mb-12"
         >
-          <AssetSearch onSearch={handleAssetSearch} isLoading={isLoading} />
+        <AssetSearch 
+          onSearch={handleAssetSearch} 
+          onSearchStart={handleSearchStart}
+          isLoading={isLoading} 
+        />
         </motion.div>
 
-        {/* Demo Chart and Prediction */}
-        {selectedAsset && (
+        {/* Live Asset Data and Prediction */}
+        {selectedAssetData && (
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             transition={{ duration: 0.5 }}
             className="space-y-6"
           >
+            {/* Asset Information Card */}
+            <Card className="luxury-card p-6">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <h3 className="text-2xl font-bold text-foreground">{selectedAssetData.symbol}</h3>
+                    <p className="text-muted-foreground">{selectedAssetData.name}</p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-3xl font-bold text-foreground">
+                      ${formatPrice(selectedAssetData.currentPrice)}
+                    </p>
+                    <p className={`text-lg font-medium ${
+                      selectedAssetData.changePercent >= 0 ? 'text-chart-bull' : 'text-chart-bear'
+                    }`}>
+                      {formatChange(selectedAssetData.changePercent, true)} 
+                      <span className="text-sm ml-1">
+                        ({formatChange(selectedAssetData.change24h)})
+                      </span>
+                    </p>
+                  </div>
+                </div>
+                
+                {selectedAssetData.marketCap && (
+                  <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border/50">
+                    <div>
+                      <p className="text-sm text-muted-foreground">Market Cap</p>
+                      <p className="font-medium text-foreground">
+                        ${(selectedAssetData.marketCap / 1e12).toFixed(2)}T
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">Volume</p>
+                      <p className="font-medium text-foreground">
+                        {(selectedAssetData.volume! / 1e6).toFixed(1)}M
+                      </p>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </Card>
+
             <PriceChart 
-              data={mockChartData}
-              symbol={selectedAsset}
-              showPrediction={true}
+              data={selectedAssetData.historicalData}
+              symbol={selectedAssetData.symbol}
+              showPrediction={!!predictionData}
             />
             
-            <PredictionCard data={{
-              ...mockPrediction,
-              symbol: selectedAsset
-            }} />
+            {/* Generate Prediction Button */}
+            {!predictionData && !isGeneratingPrediction && (
+              <Button
+                onClick={() => handleGeneratePrediction(3)}
+                className="w-full luxury-button py-4 text-lg"
+              >
+                <Brain className="w-5 h-5 mr-2" />
+                Generate AI Prediction
+              </Button>
+            )}
+            
+            {/* Prediction Loading */}
+            {isGeneratingPrediction && (
+              <Card className="luxury-card p-6 border border-primary/20">
+                <div className="flex items-center justify-center space-x-3">
+                  <div className="bg-gradient-primary p-3 rounded-xl animate-glow-pulse">
+                    <Brain className="w-6 h-6 text-primary-foreground" />
+                  </div>
+                  <div className="text-center">
+                    <h4 className="font-semibold text-foreground">Generating AI Prediction...</h4>
+                    <p className="text-sm text-muted-foreground">Analyzing market patterns and technical indicators</p>
+                  </div>
+                </div>
+              </Card>
+            )}
+            
+            {/* Prediction Results */}
+            {predictionData && (
+              <PredictionCard data={predictionData} />
+            )}
           </motion.div>
         )}
+
 
         {/* Features Grid */}
         <motion.div

@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { FinancialAPI } from "@/lib/financial-api";
+import { toast } from "sonner";
 
 const timeframeOptions = [
   { value: "1d", label: "1 Day", days: 1 },
@@ -16,14 +18,16 @@ const timeframeOptions = [
   { value: "7d", label: "7 Days", days: 7 },
 ];
 
-const mockHistoricalData = [
-  { date: "2024-01-01", price: 150.00 },
-  { date: "2024-01-02", price: 152.50 },
-  { date: "2024-01-03", price: 148.75 },
-  { date: "2024-01-04", price: 155.20 },
-  { date: "2024-01-05", price: 158.90 },
-  { date: "2024-01-06", price: 161.45 },
-];
+interface AssetData {
+  symbol: string;
+  name: string;
+  currentPrice: number;
+  historicalData: any[];
+  change24h: number;
+  changePercent: number;
+  marketCap?: number;
+  volume?: number;
+}
 
 const generatePredictionData = (currentPrice: number, timeframe: string) => {
   const random = (min: number, max: number) => Math.random() * (max - min) + min;
@@ -46,47 +50,63 @@ const generatePredictionData = (currentPrice: number, timeframe: string) => {
 };
 
 const Forecast = () => {
-  const [selectedAsset, setSelectedAsset] = useState<string | null>(null);
+  const [selectedAssetData, setSelectedAssetData] = useState<AssetData | null>(null);
   const [selectedTimeframe, setSelectedTimeframe] = useState("3d");
   const [isLoading, setIsLoading] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
   const [predictionData, setPredictionData] = useState<any>(null);
 
-  const currentPrice = 161.45; // Mock current price
+  const handleAssetSearch = async (symbol: string, assetData: AssetData) => {
+    try {
+      setSelectedAssetData(assetData);
+      setPredictionData(null);
+      toast.success(`Successfully loaded ${assetData.name} (${symbol})`);
+    } catch (error) {
+      toast.error("Failed to load asset data");
+      console.error('Asset search error:', error);
+    }
+  };
 
-  const handleAssetSearch = async (symbol: string) => {
+  const handleSearchStart = () => {
     setIsLoading(true);
-    setSelectedAsset(symbol);
+    setSelectedAssetData(null);
     setPredictionData(null);
-    
-    // Simulate fetching historical data
-    setTimeout(() => {
-      setIsLoading(false);
-    }, 1500);
   };
 
   const handleGenerateForecast = async () => {
-    if (!selectedAsset) return;
+    if (!selectedAssetData) return;
     
     setIsAnalyzing(true);
+    setPredictionData(null);
     
-    // Simulate AI analysis
-    setTimeout(() => {
-      const prediction = generatePredictionData(currentPrice, selectedTimeframe);
-      const timeframeLabel = timeframeOptions.find(t => t.value === selectedTimeframe)?.label || "3 Days";
+    try {
+      const days = timeframeOptions.find(t => t.value === selectedTimeframe)?.days || 3;
+      
+      const prediction = await FinancialAPI.generatePrediction(
+        selectedAssetData.symbol,
+        selectedAssetData.historicalData,
+        days
+      );
       
       setPredictionData({
-        symbol: selectedAsset,
-        currentPrice,
+        symbol: selectedAssetData.symbol,
+        currentPrice: selectedAssetData.currentPrice,
         predictedPrice: prediction.predictedPrice,
-        timeframe: timeframeLabel,
+        timeframe: prediction.timeframe,
         confidence: prediction.confidence,
         trend: prediction.trend,
         changePercent: prediction.changePercent,
-        explanation: `Based on technical analysis and market sentiment, our LSTM model identifies ${prediction.trend} momentum. Key factors include moving average convergence, volume patterns, and historical price action over the ${timeframeLabel.toLowerCase()} horizon.`
+        explanation: prediction.explanation
       });
+      
+      toast.success("AI forecast generated successfully!");
+      
+    } catch (error) {
+      toast.error("Failed to generate forecast");
+      console.error('Forecast error:', error);
+    } finally {
       setIsAnalyzing(false);
-    }, 3000);
+    }
   };
 
   return (
@@ -114,11 +134,15 @@ const Forecast = () => {
         transition={{ duration: 0.5, delay: 0.1 }}
         className="mb-8"
       >
-        <AssetSearch onSearch={handleAssetSearch} isLoading={isLoading} />
+        <AssetSearch 
+          onSearch={handleAssetSearch} 
+          onSearchStart={handleSearchStart}
+          isLoading={isLoading} 
+        />
       </motion.div>
 
       {/* Analysis Panel */}
-      {selectedAsset && !isLoading && (
+      {selectedAssetData && !isLoading && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
           animate={{ opacity: 1, scale: 1 }}
@@ -127,8 +151,8 @@ const Forecast = () => {
         >
           {/* Historical Chart */}
           <PriceChart 
-            data={mockHistoricalData}
-            symbol={selectedAsset}
+            data={selectedAssetData.historicalData}
+            symbol={selectedAssetData.symbol}
             showPrediction={false}
           />
 

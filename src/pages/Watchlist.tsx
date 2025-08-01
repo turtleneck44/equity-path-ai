@@ -1,11 +1,13 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Bookmark, Plus, TrendingUp, TrendingDown, Bell, Trash2, AlertTriangle } from "lucide-react";
+import { Bookmark, Plus, TrendingUp, TrendingDown, Bell, Trash2, AlertTriangle, RefreshCw } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { AssetSearch } from "@/components/ui/asset-search";
+import { FinancialAPI, formatPrice, formatChange } from "@/lib/financial-api";
 import { cn } from "@/lib/utils";
+import { toast } from "sonner";
 
 interface WatchlistItem {
   id: string;
@@ -18,94 +20,132 @@ interface WatchlistItem {
     direction: "up" | "down" | "neutral";
     confidence: number;
     targetPrice: number;
+    lastUpdated: string;
   };
   alerts: {
     priceAbove?: number;
     priceBelow?: number;
     predictionChange?: boolean;
   };
+  addedAt: string;
 }
 
-const mockWatchlist: WatchlistItem[] = [
-  {
-    id: "1",
-    symbol: "AAPL",
-    name: "Apple Inc.",
-    currentPrice: 161.45,
-    changePercent: 2.34,
-    change24h: 3.69,
-    prediction: {
-      direction: "up",
-      confidence: 78,
-      targetPrice: 168.30
-    },
-    alerts: {
-      priceAbove: 170,
-      predictionChange: true
-    }
-  },
-  {
-    id: "2",
-    symbol: "BTC-USD",
-    name: "Bitcoin",
-    currentPrice: 43250.00,
-    changePercent: -1.25,
-    change24h: -546.32,
-    prediction: {
-      direction: "neutral",
-      confidence: 65,
-      targetPrice: 44100.00
-    },
-    alerts: {
-      priceBelow: 40000
-    }
-  },
-  {
-    id: "3",
-    symbol: "TSLA",
-    name: "Tesla Inc.",
-    currentPrice: 248.85,
-    changePercent: 4.12,
-    change24h: 9.84,
-    prediction: {
-      direction: "up",
-      confidence: 82,
-      targetPrice: 265.20
-    },
-    alerts: {
-      priceAbove: 260,
-      predictionChange: true
-    }
+const STORAGE_KEY = 'equitypath_watchlist';
+
+// Load watchlist from localStorage
+const loadWatchlist = (): WatchlistItem[] => {
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    return stored ? JSON.parse(stored) : [];
+  } catch {
+    return [];
   }
-];
+};
+
+// Save watchlist to localStorage
+const saveWatchlist = (watchlist: WatchlistItem[]) => {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(watchlist));
+  } catch (error) {
+    console.error('Failed to save watchlist:', error);
+  }
+};
+
+// Generate mock prediction for watchlist item
+const generateMockPrediction = (currentPrice: number) => {
+  const change = (Math.random() - 0.5) * 0.1; // ±5% max change
+  const targetPrice = currentPrice * (1 + change);
+  const confidence = Math.floor(Math.random() * 30) + 65; // 65-95% confidence
+  
+  let direction: "up" | "down" | "neutral";
+  if (Math.abs(change) < 0.01) direction = "neutral";
+  else direction = change > 0 ? "up" : "down";
+  
+  return {
+    direction,
+    confidence,
+    targetPrice: Number(targetPrice.toFixed(2)),
+    lastUpdated: new Date().toISOString()
+  };
+};
 
 const Watchlist = () => {
-  const [watchlist, setWatchlist] = useState<WatchlistItem[]>(mockWatchlist);
+  const [watchlist, setWatchlist] = useState<WatchlistItem[]>([]);
   const [isAddingAsset, setIsAddingAsset] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleAddAsset = (symbol: string) => {
-    // Mock adding asset - in real app, this would fetch real data
-    const newAsset: WatchlistItem = {
-      id: Date.now().toString(),
-      symbol: symbol,
-      name: "New Asset",
-      currentPrice: 100.00,
-      changePercent: 0,
-      change24h: 0,
-      prediction: {
-        direction: "neutral",
-        confidence: 70,
-        targetPrice: 102.00
-      },
-      alerts: {}
-    };
-    
-    setWatchlist([...watchlist, newAsset]);
-    setIsAddingAsset(false);
+  // Load watchlist on component mount
+  useEffect(() => {
+    const savedWatchlist = loadWatchlist();
+    setWatchlist(savedWatchlist);
+  }, []);
+
+  // Save watchlist whenever it changes
+  useEffect(() => {
+    saveWatchlist(watchlist);
+  }, [watchlist]);
+
+  const handleAddAsset = async (symbol: string, assetData: any) => {
+    try {
+      // Check if asset already exists
+      if (watchlist.find(item => item.symbol === symbol)) {
+        toast.error(`${symbol} is already in your watchlist`);
+        return;
+      }
+
+      const newAsset: WatchlistItem = {
+        id: Date.now().toString(),
+        symbol: assetData.symbol,
+        name: assetData.name,
+        currentPrice: assetData.currentPrice,
+        changePercent: assetData.changePercent,
+        change24h: assetData.change24h,
+        prediction: generateMockPrediction(assetData.currentPrice),
+        alerts: {},
+        addedAt: new Date().toISOString()
+      };
+      
+      setWatchlist(prev => [...prev, newAsset]);
+      setIsAddingAsset(false);
+      toast.success(`Added ${assetData.name} to watchlist`);
+    } catch (error) {
+      toast.error("Failed to add asset to watchlist");
+      console.error('Add asset error:', error);
+    }
+  };
+
+  const handleSearchStart = () => {
+    setIsLoading(true);
   };
 
   const handleRemoveAsset = (id: string) => {
+    const item = watchlist.find(w => w.id === id);
     setWatchlist(watchlist.filter(item => item.id !== id));
+    toast.success(`Removed ${item?.symbol} from watchlist`);
+  };
+
+  const handleRefreshPredictions = async () => {
+    if (watchlist.length === 0) return;
+    
+    setIsRefreshing(true);
+    toast.info("Refreshing AI predictions...");
+    
+    try {
+      // Simulate refreshing predictions for all assets
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      setWatchlist(prev => prev.map(item => ({
+        ...item,
+        prediction: generateMockPrediction(item.currentPrice)
+      })));
+      
+      toast.success("All predictions updated successfully!");
+    } catch (error) {
+      toast.error("Failed to refresh predictions");
+    } finally {
+      setIsRefreshing(false);
+    }
   };
 
   const getPredictionIcon = (direction: string) => {
@@ -144,11 +184,26 @@ const Watchlist = () => {
             <Bookmark className="w-6 h-6 text-primary-foreground" />
           </div>
         </div>
-        <h1 className="text-3xl font-bold text-foreground mb-2">Watchlist</h1>
-        <p className="text-muted-foreground">Track your favorite assets with AI-powered insights</p>
+        
+        {/* Header with Refresh Button */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Watchlist</h1>
+            <p className="text-muted-foreground">Track your favorite assets with AI-powered insights</p>
+          </div>
+          {watchlist.length > 0 && (
+            <Button
+              onClick={handleRefreshPredictions}
+              disabled={isRefreshing}
+              variant="outline"
+              className="flex items-center space-x-2"
+            >
+              <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+              <span>Refresh</span>
+            </Button>
+          )}
+        </div>
       </motion.div>
-
-      {/* Add Asset Button */}
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
@@ -167,6 +222,8 @@ const Watchlist = () => {
           <Card className="luxury-card p-4">
             <AssetSearch 
               onSearch={handleAddAsset}
+              onSearchStart={handleSearchStart}
+              isLoading={isLoading}
               className="mb-4"
             />
             <Button
@@ -245,7 +302,7 @@ const Watchlist = () => {
                       <div>
                         <p className="text-sm text-muted-foreground">Current Price</p>
                         <p className="text-2xl font-bold text-foreground">
-                          ${item.currentPrice.toLocaleString()}
+                          ${formatPrice(item.currentPrice)}
                         </p>
                       </div>
                       <div>
@@ -255,13 +312,13 @@ const Watchlist = () => {
                             "text-xl font-bold",
                             isPositive ? "text-chart-bull" : "text-chart-bear"
                           )}>
-                            {isPositive ? "+" : ""}{item.changePercent.toFixed(2)}%
+                            {formatChange(item.changePercent, true)}
                           </span>
                           <span className={cn(
                             "text-sm",
                             isPositive ? "text-chart-bull" : "text-chart-bear"
                           )}>
-                            ({isPositive ? "+" : ""}${item.change24h.toFixed(2)})
+                            ({formatChange(item.change24h)})
                           </span>
                         </div>
                       </div>
@@ -288,7 +345,7 @@ const Watchlist = () => {
                         <div>
                           <span className="text-muted-foreground">Target Price: </span>
                           <span className="font-medium text-foreground">
-                            ${item.prediction.targetPrice.toFixed(2)}
+                            ${formatPrice(item.prediction.targetPrice)}
                           </span>
                         </div>
                         <div>
@@ -297,6 +354,11 @@ const Watchlist = () => {
                             {item.prediction.confidence}%
                           </span>
                         </div>
+                      </div>
+
+                      {/* Last Updated */}
+                      <div className="text-xs text-muted-foreground">
+                        Updated: {new Date(item.prediction.lastUpdated).toLocaleTimeString()}
                       </div>
                     </div>
 
