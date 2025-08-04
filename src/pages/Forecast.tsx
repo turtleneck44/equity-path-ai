@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FinancialAPI } from "@/lib/financial-api";
+import { RealFinancialAPI, type RealAssetData, type AdvancedPrediction } from "@/lib/real-financial-api";
 import { toast } from "sonner";
 
 const timeframeOptions = [
@@ -82,7 +82,7 @@ const Forecast = () => {
     try {
       const days = timeframeOptions.find(t => t.value === selectedTimeframe)?.days || 3;
       
-      const prediction = await FinancialAPI.generatePrediction(
+      const prediction = await RealFinancialAPI.generatePrediction(
         selectedAssetData.symbol,
         selectedAssetData.historicalData,
         days

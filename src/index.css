@@ -8,14 +8,86 @@ Ultra-premium dark theme with gold/electric blue accents for professional tradin
 
 @layer base {
   :root {
-    /* Luxury Dark Theme - Primary Colors */
-    --background: 220 13% 9%;
+    /* Light Theme - Professional Bright Design */
+    --background: 210 20% 98%;
+    --foreground: 220 13% 9%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 220 13% 9%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 220 13% 9%;
+
+    /* Premium Gold Accent - Adjusted for light mode */
+    --primary: 45 86% 48%;
+    --primary-foreground: 0 0% 100%;
+    --primary-glow: 45 100% 55%;
+
+    /* Electric Blue Secondary - Adjusted for light mode */
+    --secondary: 210 100% 46%;
+    --secondary-foreground: 0 0% 100%;
+    --secondary-glow: 210 100% 60%;
+
+    --muted: 210 20% 95%;
+    --muted-foreground: 220 9% 45%;
+
+    --accent: 210 20% 90%;
+    --accent-foreground: 220 13% 9%;
+
+    /* Status Colors */
+    --success: 142 71% 35%;
+    --success-foreground: 0 0% 100%;
+    --warning: 38 92% 40%;
+    --warning-foreground: 0 0% 100%;
+    --destructive: 0 84% 50%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 220 13% 88%;
+    --input: 220 13% 95%;
+    --ring: 45 86% 48%;
+
+    /* Custom Financial Theme Variables - Light Mode */
+    --chart-grid: 220 13% 85%;
+    --chart-bull: 142 71% 35%;
+    --chart-bear: 0 84% 50%;
+    --chart-neutral: 220 9% 50%;
+    
+    /* Gradients - Light Mode */
+    --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
+    --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-glow)));
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(210 20% 96%));
+    --gradient-surface: linear-gradient(180deg, hsl(210 20% 98%), hsl(210 20% 95%));
+    
+    /* Shadows - Light Mode */
+    --shadow-luxury: 0 25px 50px -12px hsl(var(--primary) / 0.15);
+    --shadow-card: 0 10px 30px -10px hsl(220 13% 80% / 0.4);
+    --shadow-glow: 0 0 40px hsl(var(--primary-glow) / 0.2);
+    
+    /* Transitions */
+    --transition-luxury: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --radius: 0.5rem;
+
+    --sidebar-background: 0 0% 98%;
+    --sidebar-foreground: 240 5.3% 26.1%;
+    --sidebar-primary: 240 5.9% 10%;
+    --sidebar-primary-foreground: 0 0% 98%;
+    --sidebar-accent: 240 4.8% 95.9%;
+    --sidebar-accent-foreground: 240 5.9% 10%;
+    --sidebar-border: 220 13% 91%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    /* Enhanced Dark Mode - Luxury Theme */
+    --background: 220 13% 6%;
     --foreground: 210 40% 98%;
 
-    --card: 220 13% 12%;
+    --card: 220 13% 9%;
     --card-foreground: 210 40% 98%;
 
-    --popover: 220 13% 12%;
+    --popover: 220 13% 9%;
     --popover-foreground: 210 40% 98%;
 
     /* Premium Gold Accent */
@@ -55,81 +127,22 @@ Ultra-premium dark theme with gold/electric blue accents for professional tradin
     /* Gradients */
     --gradient-primary: linear-gradient(135deg, hsl(var(--primary)), hsl(var(--primary-glow)));
     --gradient-secondary: linear-gradient(135deg, hsl(var(--secondary)), hsl(var(--secondary-glow)));
-    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(220 13% 14%));
-    --gradient-surface: linear-gradient(180deg, hsl(220 13% 12%), hsl(220 13% 10%));
+    --gradient-card: linear-gradient(145deg, hsl(var(--card)), hsl(220 13% 11%));
+    --gradient-surface: linear-gradient(180deg, hsl(220 13% 9%), hsl(220 13% 7%));
     
     /* Shadows */
     --shadow-luxury: 0 25px 50px -12px hsl(var(--primary) / 0.25);
-    --shadow-card: 0 10px 30px -10px hsl(220 13% 5% / 0.8);
+    --shadow-card: 0 10px 30px -10px hsl(220 13% 3% / 0.8);
     --shadow-glow: 0 0 40px hsl(var(--primary-glow) / 0.3);
-    
-    /* Transitions */
-    --transition-luxury: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    --transition-fast: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
 
-    --radius: 0.5rem;
-
-    --sidebar-background: 0 0% 98%;
-
-    --sidebar-foreground: 240 5.3% 26.1%;
-
-    --sidebar-primary: 240 5.9% 10%;
-
-    --sidebar-primary-foreground: 0 0% 98%;
-
-    --sidebar-accent: 240 4.8% 95.9%;
-
-    --sidebar-accent-foreground: 240 5.9% 10%;
-
-    --sidebar-border: 220 13% 91%;
-
-    --sidebar-ring: 217.2 91.2% 59.8%;
-  }
-
-  .dark {
-    /* Enhanced Dark Mode - Already optimized for luxury */
-    --background: 220 13% 6%;
-    --foreground: 210 40% 98%;
-
-    --card: 220 13% 9%;
-    --card-foreground: 210 40% 98%;
-
-    --popover: 220 13% 9%;
-    --popover-foreground: 210 40% 98%;
-
-    --primary: 45 86% 62%;
-    --primary-foreground: 220 13% 6%;
-    --primary-glow: 45 100% 75%;
-
-    --secondary: 210 100% 60%;
-    --secondary-foreground: 220 13% 6%;
-    --secondary-glow: 210 100% 75%;
-
-    --muted: 220 13% 12%;
-    --muted-foreground: 220 9% 65%;
-
-    --accent: 220 13% 15%;
-    --accent-foreground: 210 40% 98%;
-
-    --success: 142 71% 50%;
-    --warning: 38 92% 55%;
-    --destructive: 0 84% 65%;
-
-    --border: 220 13% 15%;
-    --input: 220 13% 12%;
-    --ring: 45 86% 62%;
-    
-    --chart-grid: 220 13% 18%;
-    --shadow-luxury: 0 25px 50px -12px hsl(var(--primary) / 0.35);
-    --shadow-glow: 0 0 50px hsl(var(--primary-glow) / 0.4);
-    --sidebar-background: 240 5.9% 10%;
-    --sidebar-foreground: 240 4.8% 95.9%;
-    --sidebar-primary: 224.3 76.3% 48%;
-    --sidebar-primary-foreground: 0 0% 100%;
-    --sidebar-accent: 240 3.7% 15.9%;
-    --sidebar-accent-foreground: 240 4.8% 95.9%;
-    --sidebar-border: 240 3.7% 15.9%;
-    --sidebar-ring: 217.2 91.2% 59.8%;
+    --sidebar-background: 220 13% 9%;
+    --sidebar-foreground: 210 40% 98%;
+    --sidebar-primary: 45 86% 58%;
+    --sidebar-primary-foreground: 220 13% 9%;
+    --sidebar-accent: 220 13% 15%;
+    --sidebar-accent-foreground: 210 40% 98%;
+    --sidebar-border: 220 13% 18%;
+    --sidebar-ring: 45 86% 58%;
   }
 }
 

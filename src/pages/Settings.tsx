@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Badge } from "@/components/ui/badge";
+import { ThemeToggle } from "@/components/ui/theme-toggle";
+import { useTheme } from "@/contexts/ThemeContext";
 
 interface SettingSection {
   title: string;
@@ -138,6 +140,7 @@ const settingSections: SettingSection[] = [
 ];
 
 const Settings = () => {
+  const { theme } = useTheme();
   const [settings, setSettings] = useState(() => {
     const initialSettings: Record<string, boolean | string> = {};
     settingSections.forEach(section => {
@@ -222,29 +225,36 @@ const Settings = () => {
                       <p className="text-sm text-muted-foreground">{setting.description}</p>
                     </div>
 
-                    <div className="ml-4">
-                      {setting.type === "toggle" && (
-                        <Switch
-                          checked={settings[setting.id] as boolean}
-                          onCheckedChange={() => handleToggle(setting.id)}
-                        />
-                      )}
+                     <div className="ml-4">
+                       {setting.type === "toggle" && (
+                         <Switch
+                           checked={settings[setting.id] as boolean}
+                           onCheckedChange={() => handleToggle(setting.id)}
+                         />
+                       )}
 
-                      {setting.type === "select" && setting.options && (
-                        <Badge 
-                          variant="outline" 
-                          className="cursor-pointer hover:bg-muted/50 px-3 py-1"
-                        >
-                          {formatSelectValue(settings[setting.id] as string)}
-                        </Badge>
-                      )}
+                       {setting.type === "select" && setting.options && setting.id === "theme" ? (
+                         <div className="flex items-center gap-2">
+                           <Badge variant="outline" className="px-3 py-1">
+                             {theme === 'dark' ? 'Dark' : 'Light'}
+                           </Badge>
+                           <ThemeToggle />
+                         </div>
+                       ) : setting.type === "select" && setting.options && (
+                         <Badge 
+                           variant="outline" 
+                           className="cursor-pointer hover:bg-muted/50 px-3 py-1"
+                         >
+                           {formatSelectValue(settings[setting.id] as string)}
+                         </Badge>
+                       )}
 
-                      {setting.type === "action" && (
-                        <Button variant="outline" size="sm">
-                          Configure
-                        </Button>
-                      )}
-                    </div>
+                       {setting.type === "action" && (
+                         <Button variant="outline" size="sm">
+                           Configure
+                         </Button>
+                       )}
+                     </div>
                   </motion.div>
                 ))}
               </div>
