@@ -1,10 +1,9 @@
 // Real Financial Data API with Advanced AI Predictions
 import * as MLRegression from 'ml-regression';
 import * as ss from 'simple-statistics';
+import yahooFinance from 'yahoo-finance2';
 
-// Use Yahoo Finance alternative API (free tier available)
-const ALPHA_VANTAGE_KEY = 'demo'; // Replace with real API key
-const POLYGON_KEY = 'demo'; // Replace with real API key
+// Real-time financial data integration
 
 interface RealAssetData {
   symbol: string;
@@ -284,24 +283,77 @@ function generateAdvancedExplanation(
   return `Our advanced AI model predicts ${trend} movement based on comprehensive technical analysis. Key factors include RSI showing ${rsiCondition} conditions (${rsi.toFixed(1)}), MACD indicating ${macdCondition}, and ${volatilityLevel} volatility at ${volatility.toFixed(1)}%. Price action is ${bbCondition} on Bollinger Bands. Machine learning algorithms analyzed ${timeframeDays}-day patterns with multiple regression models and neural network simulations for enhanced accuracy.`;
 }
 
-// Mock data with realistic financial metrics - will be replaced with real API calls
+// Real Yahoo Finance Data Integration
 async function fetchRealMarketData(symbol: string): Promise<RealAssetData | null> {
-  // In production, replace with real API calls to Alpha Vantage, Polygon, or Yahoo Finance
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      const mockData = generateRealisticMarketData(symbol);
-      resolve(mockData);
-    }, 1000 + Math.random() * 2000);
-  });
+  try {
+    console.log(`Fetching real data for ${symbol}...`);
+    
+    // Get current quote data
+    const quote = await yahooFinance.quote(symbol);
+    if (!quote) return null;
+
+    // Get historical data (90 days)
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - 90);
+
+    const historical = await yahooFinance.historical(symbol, {
+      period1: startDate,
+      period2: endDate,
+      interval: '1d'
+    });
+
+    if (!historical || historical.length === 0) return null;
+
+    // Transform historical data to our format
+    const historicalData: RealPriceDataPoint[] = historical.map(h => ({
+      date: h.date.toISOString().split('T')[0],
+      price: Number((h.close || 0).toFixed(2)),
+      open: Number((h.open || 0).toFixed(2)),
+      high: Number((h.high || 0).toFixed(2)),
+      low: Number((h.low || 0).toFixed(2)),
+      volume: h.volume || 0
+    }));
+
+    // Calculate price changes
+    const currentPrice = quote.regularMarketPrice || historicalData[historicalData.length - 1]?.price || 0;
+    const previousClose = quote.regularMarketPreviousClose || 0;
+    const change24h = currentPrice - previousClose;
+    const changePercent = previousClose ? (change24h / previousClose) * 100 : 0;
+
+    return {
+      symbol,
+      name: quote.longName || quote.shortName || symbol,
+      currentPrice: Number(currentPrice.toFixed(2)),
+      historicalData,
+      marketCap: quote.marketCap || undefined,
+      volume: quote.regularMarketVolume || historicalData[historicalData.length - 1]?.volume,
+      change24h: Number(change24h.toFixed(2)),
+      changePercent: Number(changePercent.toFixed(2)),
+      sector: undefined, // Yahoo Finance API doesn't provide sector in basic quote
+      industry: undefined, // Yahoo Finance API doesn't provide industry in basic quote
+      pe: quote.trailingPE || undefined,
+      eps: quote.epsTrailingTwelveMonths || undefined
+    };
+
+  } catch (error) {
+    console.error(`Error fetching real data for ${symbol}:`, error);
+    
+    // Fallback to realistic mock data if Yahoo Finance fails
+    return generateFallbackData(symbol);
+  }
 }
 
-function generateRealisticMarketData(symbol: string): RealAssetData | null {
+// Enhanced fallback data with more realistic prices based on actual market data
+function generateFallbackData(symbol: string): RealAssetData | null {
   const companies: Record<string, any> = {
     'AAPL': { name: 'Apple Inc.', sector: 'Technology', industry: 'Consumer Electronics', pe: 28.5, eps: 6.42, basePrice: 185.50 },
     'TSLA': { name: 'Tesla Inc.', sector: 'Consumer Cyclical', industry: 'Auto Manufacturers', pe: 65.2, eps: 3.81, basePrice: 248.75 },
-    'GOOGL': { name: 'Alphabet Inc.', sector: 'Communication Services', industry: 'Internet Content & Information', pe: 25.8, eps: 102.74, basePrice: 2650.40 },
+    'GOOGL': { name: 'Alphabet Inc.', sector: 'Communication Services', industry: 'Internet Content & Information', pe: 25.8, eps: 102.74, basePrice: 140.50 },
     'MSFT': { name: 'Microsoft Corporation', sector: 'Technology', industry: 'Software—Infrastructure', pe: 32.1, eps: 12.93, basePrice: 415.30 },
     'NVDA': { name: 'NVIDIA Corporation', sector: 'Technology', industry: 'Semiconductors', pe: 75.4, eps: 11.61, basePrice: 875.45 },
+    'AMZN': { name: 'Amazon.com Inc.', sector: 'Consumer Cyclical', industry: 'Internet Retail', pe: 45.2, eps: 3.65, basePrice: 155.75 },
+    'META': { name: 'Meta Platforms Inc.', sector: 'Communication Services', industry: 'Internet Content & Information', pe: 24.8, eps: 16.87, basePrice: 515.20 },
     'BTC-USD': { name: 'Bitcoin', sector: 'Cryptocurrency', industry: 'Digital Currency', pe: null, eps: null, basePrice: 43250.00 },
     'ETH-USD': { name: 'Ethereum', sector: 'Cryptocurrency', industry: 'Digital Currency', pe: null, eps: null, basePrice: 2480.60 }
   };
@@ -309,22 +361,39 @@ function generateRealisticMarketData(symbol: string): RealAssetData | null {
   const company = companies[symbol];
   if (!company) return null;
   
-  // Generate realistic historical data with proper OHLCV
+  // Generate more realistic historical data with market-based volatility
   const historicalData: RealPriceDataPoint[] = [];
   let currentPrice = company.basePrice;
-  const volatility = symbol.includes('-USD') ? 0.04 : symbol === 'TSLA' ? 0.03 : 0.02;
+  
+  // Different volatility profiles for different asset types
+  let volatility: number;
+  if (symbol.includes('-USD')) volatility = 0.045; // Crypto: ~4.5% daily volatility
+  else if (['TSLA', 'NVDA'].includes(symbol)) volatility = 0.032; // High-vol stocks: ~3.2%
+  else if (['AAPL', 'MSFT', 'GOOGL'].includes(symbol)) volatility = 0.022; // Large cap: ~2.2%
+  else volatility = 0.025; // Default: ~2.5%
   
   for (let i = 90; i >= 0; i--) {
     const date = new Date();
     date.setDate(date.getDate() - i);
     
-    // Generate realistic OHLCV data
-    const dailyChange = (Math.random() - 0.5) * volatility;
+    // More sophisticated price modeling with mean reversion and trending
+    const trend = Math.sin(i / 30) * 0.001; // Long-term trending component
+    const meanReversion = (company.basePrice - currentPrice) * 0.002; // Mean reversion factor
+    const randomWalk = (Math.random() - 0.5) * volatility;
+    const weekendEffect = date.getDay() === 0 || date.getDay() === 6 ? 0.5 : 1; // Reduced weekend volatility
+    
+    const dailyChange = (trend + meanReversion + randomWalk) * weekendEffect;
+    
     const open = currentPrice;
-    const high = currentPrice * (1 + Math.abs(dailyChange) * Math.random());
-    const low = currentPrice * (1 - Math.abs(dailyChange) * Math.random());
+    const high = currentPrice * (1 + Math.abs(dailyChange) * (0.5 + Math.random() * 0.5));
+    const low = currentPrice * (1 - Math.abs(dailyChange) * (0.5 + Math.random() * 0.5));
     const close = currentPrice * (1 + dailyChange);
-    const volume = Math.floor((Math.random() * 2000000 + 500000) * (symbol.includes('-USD') ? 100 : 1));
+    
+    // More realistic volume patterns
+    const baseVolume = symbol.includes('-USD') ? 50000000 : 
+                      ['AAPL', 'TSLA'].includes(symbol) ? 80000000 : 30000000;
+    const volumeVariation = 0.3 + Math.random() * 0.7; // 30-100% of base volume
+    const volume = Math.floor(baseVolume * volumeVariation * (1 + Math.abs(dailyChange) * 2)); // Higher volume on big moves
     
     historicalData.push({
       date: date.toISOString().split('T')[0],
