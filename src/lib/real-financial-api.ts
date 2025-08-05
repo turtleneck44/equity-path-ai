@@ -1,5 +1,5 @@
 // Real Financial Data API with Advanced AI Predictions
-import { regression } from 'ml-regression';
+import { PolynomialRegression } from 'ml-regression';
 import * as ss from 'simple-statistics';
 
 // Use Yahoo Finance alternative API (free tier available)
@@ -174,7 +174,7 @@ function generateAdvancedPrediction(historicalData: RealPriceDataPoint[], timefr
   
   // Simple neural network simulation using polynomial regression
   const xValues = Array.from({ length: features.length }, (_, i) => i);
-  const polynomialRegression = new regression.PolynomialRegression(xValues, features, 2);
+  const polynomialRegression = new PolynomialRegression(xValues, features, 2);
   
   // Prediction logic combining multiple factors
   let baseMultiplier = 1;
